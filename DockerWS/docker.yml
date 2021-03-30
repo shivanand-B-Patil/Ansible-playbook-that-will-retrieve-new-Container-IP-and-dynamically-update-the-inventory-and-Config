@@ -1,0 +1,58 @@
+- hosts: localhost
+  tasks:
+  - name: "Setting the Docker Yum Repo"
+    yum_repository:
+           name: "docker_yum"
+           description: "Configure Docker"
+           baseurl: "https://download.docker.com/linux/centos/7/x86_64/stable/"
+           gpgcheck: no
+
+  - name: "docker Installation"
+    command: "yum install docker-ce --nobest -y"
+
+
+  - name: "Starting the Docker Services"
+    service:
+           name: "docker"
+           state: started
+
+  - name: "Installing Docker SDK for Python"
+    command: "pip3 install docker"
+
+  - name: "Puuling the Docker Image : httpd"
+    docker_image: 
+           name: "httpd"
+           source: pull
+
+  - name: "Create Container using HTTPD Image" 
+    docker_container:
+           name: "myweb"
+           image: "httpd"
+           state: started
+           exposed_ports: "80"
+           ports: "8080:80"
+           volumes: /webpage:/usr/local/apache2/htdocs/
+    register: var
+
+  - name: "Printing IP of container"
+    debug:
+           var: var.container.NetworkSettings.IPAddress
+
+  - name: "Configuring the IP"
+    blockinfile:
+           path: "/root/ws1/hosts.txt"
+           block: |
+             [docker]
+             {{ var.container.NetworkSettings.IPAddress}} ansible_user = root ansible_ssh_pass = root ansible_connection = ssh
+
+- hosts: docker
+  tasks:
+  - name: "Installing HTTPD"
+    package:
+           name: "httpd"
+           state: present
+
+  - name: "starting httpd"
+    service:
+           name: "httpd"
+           state: started  
